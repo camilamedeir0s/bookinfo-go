@@ -55,9 +55,18 @@ func main() {
 	if os.Getenv("SERVICE_VERSION") == "v2" {
 		dbType := os.Getenv("DB_TYPE")
 		if dbType == "mysql" {
-			initMySQL()
-		} else {
-			initMongoDB()
+			var err error
+			host := os.Getenv("MYSQL_DB_HOST")
+			port := os.Getenv("MYSQL_DB_PORT")
+			user := os.Getenv("MYSQL_DB_USER")
+			password := os.Getenv("MYSQL_DB_PASSWORD")
+			dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/ratingsdb", user, password, host, port)
+
+			db, err = sql.Open("mysql", dsn)
+			if err != nil {
+				log.Fatal("Could not connect to MySQL database:", err)
+			}
+
 		}
 	}
 
@@ -71,35 +80,6 @@ func main() {
 		port = "8080"
 	}
 	r.Run(":" + port)
-}
-
-func initMySQL() {
-	var err error
-	host := os.Getenv("MYSQL_DB_HOST")
-	port := os.Getenv("MYSQL_DB_PORT")
-	user := os.Getenv("MYSQL_DB_USER")
-	password := os.Getenv("MYSQL_DB_PASSWORD")
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/ratingsdb", user, password, host, port)
-
-	db, err = sql.Open("mysql", dsn)
-	if err != nil {
-		log.Fatal("Could not connect to MySQL database:", err)
-	}
-}
-
-func initMongoDB() {
-	var err error
-	mongoURL := os.Getenv("MONGO_DB_URL")
-	mongoClient, err = mongo.NewClient(options.Client().ApplyURI(mongoURL))
-	if err != nil {
-		log.Fatal("Could not create MongoDB client:", err)
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	err = mongoClient.Connect(ctx)
-	if err != nil {
-		log.Fatal("Could not connect to MongoDB:", err)
-	}
 }
 
 func getRatings(c *gin.Context) {
@@ -117,15 +97,16 @@ func getRatings(c *gin.Context) {
 	}
 
 	if os.Getenv("SERVICE_VERSION") == "v2" {
+
 		var firstRating, secondRating int
 
-		err = db.Ping()
-		if err != nil {
-			c.JSON(http.StatusOK, gin.H{"error": "could not connect to ratings database"})
-			return
-		}
-
 		if os.Getenv("DB_TYPE") == "mysql" {
+			err = db.Ping()
+			if err != nil {
+				c.JSON(http.StatusOK, gin.H{"error": "could not connect to ratings database"})
+				return
+			}
+
 			rows, err := db.Query("SELECT Rating FROM ratings LIMIT 2")
 			if err != nil {
 				fmt.Println(err)
@@ -154,34 +135,63 @@ func getRatings(c *gin.Context) {
 			}
 
 		} else {
-			collection := mongoClient.Database("test").Collection("ratings")
-			filter := bson.M{"id": productId}
-			var result []bson.M
-			cursor, err := collection.Find(context.TODO(), filter)
+			var err error
+			mongoURL := os.Getenv("MONGO_DB_URL")
+
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+
+			// Substitui mongoClient.Connect por mongo.Connect
+			mongoClient, err = mongo.Connect(ctx, options.Client().ApplyURI(mongoURL))
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "could not load ratings from database"})
+				log.Fatal("Could not connect to MongoDB:", err)
+			}
+
+			collection := mongoClient.Database("test").Collection("ratings")
+			cursor, err := collection.Find(ctx, bson.M{})
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "could not connect to ratings database"})
 				return
 			}
-			if err = cursor.All(context.TODO(), &result); err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "could not decode ratings"})
+			defer cursor.Close(ctx)
+
+			var ratingsData []bson.M // Usando bson.M para mapear os dados diretamente
+			if err = cursor.All(ctx, &ratingsData); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "could not parse ratings data"})
 				return
 			}
 
-			if len(result) > 0 {
-				firstRating = result[0]["rating"].(int)
+			firstRating, secondRating := 0, 0
+
+			// Verifica se existem registros suficientes e atribui os ratings
+			if len(ratingsData) > 0 {
+				if val, ok := ratingsData[0]["rating"].(int32); ok {
+					firstRating = int(val)
+				} else {
+					fmt.Println("Rating for Reviewer1 not found or not an integer")
+				}
 			}
-			if len(result) > 1 {
-				secondRating = result[1]["rating"].(int)
+
+			if len(ratingsData) > 1 {
+				if val, ok := ratingsData[1]["rating"].(int32); ok {
+					secondRating = int(val)
+				} else {
+					fmt.Println("Rating for Reviewer2 not found or not an integer")
+				}
 			}
+
+			result := map[string]interface{}{
+				"id": productId,
+				"ratings": map[string]int{
+					"Reviewer1": firstRating,
+					"Reviewer2": secondRating,
+				},
+			}
+
+			c.JSON(http.StatusOK, result)
+
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"id": productId,
-			"ratings": gin.H{
-				"Reviewer1": firstRating,
-				"Reviewer2": secondRating,
-			},
-		})
 	} else {
 		c.JSON(http.StatusOK, getLocalReviews(productId))
 	}
