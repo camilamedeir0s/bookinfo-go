@@ -37,7 +37,7 @@ var (
 	// )
 
 	ratingsEnabled = getEnvAsBool("ENABLE_RATINGS", true)
-	ratingsService = "http://localhost:8080/ratings"
+	ratingsService = "http://localhost:8085/ratings"
 
 	podHostname = getEnv("HOSTNAME", "unknown")
 	clusterName = getEnv("CLUSTER_NAME", "unknown")
@@ -50,7 +50,7 @@ func main() {
 	router.GET("/health", health)
 	router.GET("/reviews/:productId", bookReviewsByID)
 
-	router.Run(":9080")
+	router.Run(":9086")
 }
 
 func health(c *gin.Context) {
