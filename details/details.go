@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -25,12 +24,16 @@ type BookDetails struct {
 }
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: go run main.go <port>")
-		os.Exit(1)
-	}
+	// if len(os.Args) < 2 {
+	// 	fmt.Println("Usage: go run main.go <port>")
+	// 	os.Exit(1)
+	// }
 
-	port := os.Args[1]
+	port := "9084"
+
+	if len(os.Args) > 1 {
+		port = os.Args[1]
+	}
 	r := gin.Default()
 
 	r.GET("/health", func(c *gin.Context) {

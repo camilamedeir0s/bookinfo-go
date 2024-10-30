@@ -31,6 +31,24 @@ type Product struct {
 	DescriptionHtml string `json:"descriptionHtml"`
 }
 
+type Rating struct {
+	Stars int    `json:"stars"`
+	Color string `json:"color"`
+}
+
+type Review struct {
+	Reviewer string `json:"reviewer"`
+	Text     string `json:"text"`
+	Rating   Rating `json:"rating"`
+}
+
+type ReviewData struct {
+	ID          string   `json:"id"`
+	PodName     string   `json:"podname"`
+	ClusterName string   `json:"clustername"`
+	Reviews     []Review `json:"reviews"`
+}
+
 func init() {
 	// Carregar os templates
 	templates = template.Must(template.ParseGlob("templates/*.html"))
@@ -130,8 +148,6 @@ func productPageHandler(w http.ResponseWriter, r *http.Request) {
 	detailsStatus, details := getProductDetails(productID, headers)
 
 	reviewsStatus, reviews := getProductReviews(productID, headers)
-
-	fmt.Println(product.DescriptionHtml)
 
 	// Exemplo de valor de rating
 	stars := 4 // Substitua isso com o valor real de estrelas das avaliações
@@ -263,8 +279,6 @@ func productReviewsHandler(w http.ResponseWriter, r *http.Request) {
 	reviewsService := services["reviews"]                               // Pega o serviço "reviews" do mapa de serviços
 	url := fmt.Sprintf("%s/reviews/%s", reviewsService.Name, productID) // Constrói a URL com o ID do produto
 
-	fmt.Println(reviewsService)
-
 	resp, err := http.Get(url)
 	if err != nil {
 		http.Error(w, "Failed to fetch product reviews", http.StatusInternalServerError)
@@ -291,8 +305,6 @@ func productRatingsHandler(w http.ResponseWriter, r *http.Request) {
 
 	ratingsService := services["ratings"]                               // Pega o serviço "ratings" do mapa de serviços
 	url := fmt.Sprintf("%s/ratings/%s", ratingsService.Name, productID) // Constrói a URL com o ID do produto
-
-	fmt.Println(ratingsService)
 
 	resp, err := http.Get(url)
 	if err != nil {
@@ -329,8 +341,6 @@ func getProductDetails(productID int, headers map[string]string) (int, map[strin
 	detailsService := services["details"]                               // Pega o serviço "ratings" do mapa de serviços
 	url := fmt.Sprintf("%s/details/%d", detailsService.Name, productID) // Constrói a URL com o ID do produto
 	// url := fmt.Sprintf("http://localhost:9084/details/%d", productID)
-
-	fmt.Println(url)
 
 	// Cria uma nova requisição HTTP GET
 	req, err := http.NewRequest("GET", url, nil)
@@ -379,9 +389,79 @@ func getProductDetails(productID int, headers map[string]string) (int, map[strin
 }
 
 func getProductReviews(productID int, headers map[string]string) (int, map[string]interface{}) {
-	return 200, map[string]interface{}{
-		"reviews": "Product reviews",
+	// Constroi a URL para o serviço reviews
+	reviewsService := services["reviews"]                               // Pega o serviço "ratings" do mapa de serviços
+	url := fmt.Sprintf("%s/reviews/%d", reviewsService.Name, productID) // Constrói a URL com o ID do produto
+	// url := fmt.Sprintf("http://localhost:9084/reviews/%d", productID)
+
+	// Cria uma nova requisição HTTP GET
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		fmt.Println("Error creating request:", err)
+		return 500, nil
 	}
+
+	// Adiciona os headers na requisição, se houver
+	for key, value := range headers {
+		req.Header.Add(key, value)
+	}
+
+	// Executa a requisição
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println("Error making request:", err)
+		return 500, nil
+	}
+	defer resp.Body.Close()
+
+	// Lê o corpo da resposta
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error reading response body:", err)
+		return 500, nil
+	}
+
+	// Verifica se a requisição foi bem-sucedida
+	if resp.StatusCode != http.StatusOK {
+		fmt.Printf("Received non-200 response: %d\n", resp.StatusCode)
+		return resp.StatusCode, nil
+	}
+
+	// Decodifica a resposta JSON para um mapa
+	var reviews map[string]interface{}
+	err = json.Unmarshal(body, &reviews)
+	if err != nil {
+		fmt.Println("Error unmarshalling response:", err)
+		return 500, nil
+	}
+
+	// Acessando os dados e criando um slice para stars
+	for _, review := range reviews["reviews"].([]interface{}) {
+		reviewMap := review.(map[string]interface{})
+		ratingMap := reviewMap["rating"].(map[string]interface{})
+
+		// Convertendo stars para int
+		starsFloat, ok := ratingMap["stars"].(float64) // JSON trata números como float64
+		if !ok {
+			fmt.Println("Error converting stars to float64")
+			continue
+		}
+		starsInt := int(starsFloat)
+
+		// Criando um slice de inteiros do tamanho de stars
+		ratingMap["starsSlice"] = make([]int, starsInt)
+
+		// Criando um slice de inteiros do tamanho de 5 - stars
+		emptyStarsCount := 5 - starsInt
+		if emptyStarsCount < 0 {
+			emptyStarsCount = 0 // Garantindo que não seja negativo
+		}
+		ratingMap["emptyStarsSlice"] = make([]int, emptyStarsCount)
+	}
+
+	// Retorna o status e os detalhes do produto
+	return resp.StatusCode, reviews
 }
 
 func getEnv(key, defaultValue string) string {
