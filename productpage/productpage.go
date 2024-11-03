@@ -176,11 +176,11 @@ func productPageHandler(w http.ResponseWriter, r *http.Request) {
 // Funções auxiliares
 func setupServices() map[string]Service {
 	servicesDomain := getEnv("SERVICES_DOMAIN", "")
-	detailsHostname := getEnv("DETAILS_HOSTNAME", "localhost")
+	detailsHostname := getEnv("DETAILS_HOSTNAME", "details-go")
 	detailsPort := getEnv("DETAILS_SERVICE_PORT", "9084")
-	ratingsHostname := getEnv("RATINGS_HOSTNAME", "localhost")
+	ratingsHostname := getEnv("RATINGS_HOSTNAME", "ratings-go")
 	ratingsPort := getEnv("RATINGS_SERVICE_PORT", "8085")
-	reviewsHostname := getEnv("REVIEWS_HOSTNAME", "localhost")
+	reviewsHostname := getEnv("REVIEWS_HOSTNAME", "reviews-go")
 	reviewsPort := getEnv("REVIEWS_SERVICE_PORT", "9086")
 
 	details := Service{

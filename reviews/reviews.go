@@ -29,16 +29,12 @@ type Response struct {
 }
 
 var (
-	// ratingsEnabled = getEnvAsBool("ENABLE_RATINGS", false)
-	starColor = getEnv("STAR_COLOR", "black")
-	// ratingsService = fmt.Sprintf("http://%s:%s/ratings",
-	// 	getEnv("RATINGS_HOSTNAME", "ratings"),
-	// 	getEnv("RATINGS_SERVICE_PORT", "8080"),
-	// )
-
-	ratingsEnabled = getEnvAsBool("ENABLE_RATINGS", true)
-	ratingsService = "http://localhost:8085/ratings"
-
+	ratingsEnabled = getEnvAsBool("ENABLE_RATINGS", false)
+	starColor      = getEnv("STAR_COLOR", "black")
+	ratingsService = fmt.Sprintf("http://%s:%s/ratings",
+		getEnv("RATINGS_HOSTNAME", "ratings"),
+		getEnv("RATINGS_SERVICE_PORT", "8085"),
+	)
 	podHostname = getEnv("HOSTNAME", "unknown")
 	clusterName = getEnv("CLUSTER_NAME", "unknown")
 	httpClient  = &http.Client{Timeout: 10 * time.Second}

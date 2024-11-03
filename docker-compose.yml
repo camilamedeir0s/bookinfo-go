@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  details-go:
+    image: details-go
+    container_name: details-go
+    networks:
+      - bookinfo-go
+    ports:
+      - "9084:9084"
+
+  ratings-go:
+    image: ratings-go
+    container_name: ratings-go
+    networks:
+      - bookinfo-go
+    ports:
+      - "8085:8085"
+
+  reviews-go:
+    image: reviews-go
+    container_name: reviews-go
+    networks:
+      - bookinfo-go
+    ports:
+      - "9086:9086"
+    environment:
+      - RATINGS_HOSTNAME=ratings-go
+      - RATINGS_SERVICE_PORT=8085
+      - ENABLE_RATINGS=true
+
+  productpage-go:
+    image: productpage-go
+    container_name: productpage-go
+    networks:
+      - bookinfo-go
+    ports:
+      - "8083:8083"
+
+networks:
+  bookinfo-go:
+    driver: bridge
