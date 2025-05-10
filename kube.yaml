@@ -1,0 +1,157 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: details-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: details
+  template:
+    metadata:
+      labels:
+        app: details
+    spec:
+      containers:
+      - name: details
+        image: docker.io/camilamedeir0s/details-go
+        ports:
+        - containerPort: 9084
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: details-service
+spec:
+  selector:
+    app: details
+  ports:
+    - protocol: TCP
+      port: 9084
+      targetPort: 9084
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ratings-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ratings
+  template:
+    metadata:
+      labels:
+        app: ratings
+    spec:
+      containers:
+      - name: ratings
+        image: docker.io/camilamedeir0s/ratings-go
+        ports:
+        - containerPort: 8085
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ratings-service
+spec:
+  selector:
+    app: ratings
+  ports:
+    - protocol: TCP
+      port: 8085
+      targetPort: 8085
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reviews-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: reviews
+  template:
+    metadata:
+      labels:
+        app: reviews
+    spec:
+      containers:
+      - name: reviews
+        image: docker.io/camilamedeir0s/reviews-go
+        ports:
+        - containerPort: 9086
+        env:
+        - name: SERVICES_DOMAIN
+          value: ".default.svc.cluster.local"
+        - name: RATINGS_HOSTNAME
+          value: "ratings-service"
+        - name: RATINGS_SERVICE_PORT
+          value: "8085"
+        - name: ENABLE_RATINGS
+          value: "true"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reviews-service
+spec:
+  selector:
+    app: reviews
+  ports:
+    - protocol: TCP
+      port: 9086
+      targetPort: 9086
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: productpage-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: productpage
+  template:
+    metadata:
+      labels:
+        app: productpage
+    spec:
+      containers:
+      - name: productpage
+        image: docker.io/camilamedeir0s/productpage-go
+        ports:
+        - containerPort: 8083
+        env:
+        - name: SERVICES_DOMAIN
+          value: ".default.svc.cluster.local"
+        - name: RATINGS_HOSTNAME
+          value: "ratings-service"
+        - name: RATINGS_SERVICE_PORT
+          value: "8085"
+        - name: ENABLE_RATINGS
+          value: "true"
+        - name: DETAILS_HOSTNAME
+          value: "details-service"
+        - name: DETAILS_SERVICE_PORT
+          value: "9084"
+        - name: REVIEWS_HOSTNAME
+          value: "reviews-service"
+        - name: REVIEWS_SERVICE_PORT
+          value: "9086"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: productpage-service
+spec:
+  selector:
+    app: productpage
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8083
+  type: LoadBalancer
